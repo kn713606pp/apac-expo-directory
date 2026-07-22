@@ -46,7 +46,7 @@ input[type=search]{flex:1;min-width:180px}
 <header>
 <button class="theme" onclick="toggleTheme()">◐ 主題</button>
 <h1>亞太美容展 · 供應商查詢平台</h1>
-<div class="meta">來源：2025 亞太區美容展（Cosmoprof Asia 香港）參展商名錄　·　1684 家（成功爬取官網 1566 家）　·　爬取更新 2026-07-22 15:18<br>分類依據：展會類別 + 進官網擷取正文/認證/信箱/瓶口牙數（供應端分類為程式判定，聯絡前請以官網為準）</div>
+<div class="meta">來源：2025 亞太區美容展（Cosmoprof Asia 香港）參展商名錄　·　1684 家（成功爬取官網 1566 家）　·　爬取更新 2026-07-22 18:20<br>分類依據：展會類別 + 進官網擷取正文/認證/信箱/瓶口牙數（供應端分類為程式判定，聯絡前請以官網為準）</div>
 </header>
 <div class="wrap">
 <div class="controls">
@@ -61,7 +61,7 @@ input[type=search]{flex:1;min-width:180px}
   <div class="frow"><span class="flabel">其他</span><span class="chip" data-flag="moq">有提 MOQ</span><span class="chip" data-flag="oem">OEM/ODM 代工</span><span class="chip" data-flag="neck">有瓶口牙數</span><span class="chip" data-flag="email">有信箱</span></div>
  </div>
 </div>
-<div class="count"><span id="count"></span><button class="btn" onclick="exportCSV()">⬇ 匯出目前結果 CSV</button></div>
+<div class="count"><span id="count"></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportOutlook()">⬇ 匯出 Outlook 通訊錄(可匯入)</button><button class="btn" onclick="copyEmails()">⧉ 複製信箱</button><button class="btn" onclick="exportCSV()">⬇ 匯出總表 CSV</button></span></div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none">沒有符合條件的廠商。放寬篩選試試。</div>
 </div>
@@ -125,6 +125,35 @@ function bindChips(){
 document.getElementById("q").addEventListener("input",e=>{state.q=e.target.value.toLowerCase().trim();render()});
 document.getElementById("country").addEventListener("change",e=>{state.country=e.target.value;render()});
 function toggleTheme(){const r=document.documentElement;const cur=r.getAttribute("data-theme")|| (matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");r.setAttribute("data-theme",cur==="dark"?"light":"dark")}
+function filteredEmails(){
+ const set=new Set();
+ (window._filtered||[]).forEach(v=>(v.emails||[]).forEach(e=>{if(e&&e.includes("@"))set.add(e.toLowerCase())}));
+ return [...set];
+}
+function dl(name,csv){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));a.download=name;a.click();}
+function copyEmails(){
+ const em=filteredEmails();
+ if(!em.length){alert("這批沒有可用信箱。");return}
+ navigator.clipboard.writeText(em.join("; ")).then(()=>alert(`已複製 ${em.length} 個信箱到剪貼簿（分號分隔），可直接貼到 Outlook 收件人。`),()=>alert("複製失敗，請改用匯出。"));
+}
+// 匯出 Outlook 可直接匯入的通訊錄 CSV（每個信箱一列）
+function exportOutlook(){
+ const rows=[["Company","First Name","E-mail Address","Business Phone","Web Page","Country/Region","Categories","Notes"]];
+ let n=0;
+ (window._filtered||[]).forEach(v=>{
+  const em=[...new Set((v.emails||[]).filter(e=>e&&e.includes("@")))];
+  em.forEach(e=>{
+   rows.push([v.name,v.name,e,v.tel||"",v.url||"",v.country||"",v.supply_subcats.join("/"),
+     (v.role+(v.certs.length?" 認證:"+v.certs.join("/"):"")+(v.neck_finishes&&v.neck_finishes.length?" 牙數:"+v.neck_finishes.join("/"):""))]);
+   n++;
+  });
+ });
+ if(n===0){alert("這批沒有可用信箱可匯出。先篩出有信箱的廠商（勾『有信箱』）。");return}
+ dl("供應商通訊錄_可匯入Outlook.csv",rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("
+"));
+ alert(`已匯出 ${n} 筆聯絡人（每個信箱一列）。
+Outlook 匯入：檔案 → 開啟和匯出 → 匯入/匯出 → 從其他程式或檔案匯入 → 逗號分隔值 → 選此檔 → 匯入至「連絡人」。`);
+}
 function exportCSV(){
  const rows=[["廠商","國家","角色","供應子類","認證","MOQ","OEM","瓶口牙數","信箱","官網"]];
  (window._filtered||[]).forEach(v=>rows.push([v.name,v.country,v.role,v.supply_subcats.join("/"),v.certs.join("/"),v.moq?"Y":"",v.oem?"Y":"",(v.neck_finishes||[]).join("/"),(v.emails||[]).join(";"),v.url]));
