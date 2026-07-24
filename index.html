@@ -47,8 +47,7 @@ input[type=search]{flex:1;min-width:180px}
 .dead{opacity:.55}
 .theme{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:0;color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px}
 .empty{text-align:center;color:var(--sub);padding:50px 0}
-.controls .filters{transition:max-height .25s ease,opacity .2s ease;overflow:hidden;max-height:600px}
-.controls.hidefilters .filters{max-height:0;opacity:0;margin:0;pointer-events:none}
+.controls.hidefilters .filters{display:none}
 .togf{white-space:nowrap}
 .viewbtns{display:inline-flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .viewbtns .vb{font-size:12px;padding:5px 11px;background:var(--card);color:var(--sub);border:0;cursor:pointer;border-right:1px solid var(--line)}
@@ -72,7 +71,7 @@ table.vt a{color:var(--green2);text-decoration:none;font-weight:600}
 <header>
 <button class="theme" onclick="toggleTheme()">◐ 主題</button>
 <h1>亞太美容展 · 供應商查詢平台</h1>
-<div class="meta">來源：2025 亞太區美容展（Cosmoprof Asia 香港）參展商名錄　·　1690 家（成功爬取官網 1555 家）　·　爬取更新 2026-07-24 14:24<br>分類依據：展會類別 + 進官網擷取正文/認證/信箱/瓶口牙數（供應端分類為程式判定，聯絡前請以官網為準）</div>
+<div class="meta">來源：2025 亞太區美容展（Cosmoprof Asia 香港）參展商名錄　·　1690 家（成功爬取官網 1555 家）　·　爬取更新 2026-07-24 15:06<br>分類依據：展會類別 + 進官網擷取正文/認證/信箱/瓶口牙數（供應端分類為程式判定，聯絡前請以官網為準）</div>
 </header>
 <div class="wrap">
 <div class="controls">
@@ -94,6 +93,7 @@ table.vt a{color:var(--green2);text-decoration:none;font-weight:600}
 </div>
 <div class="count"><span id="count"></span><span class="viewbtns"><button class="vb on" data-view="card">▦ 圖片式</button><button class="vb" data-view="list">☰ 條列式</button><button class="vb" data-view="table">▤ 表格式</button></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportOutlook()">⬇ 匯出 Outlook 通訊錄(可匯入)</button><button class="btn" onclick="copyEmails()">⧉ 複製信箱</button><button class="btn" onclick="exportCSV()">⬇ 匯出總表 CSV</button></span></div>
 <div class="grid" id="grid"></div>
+<div id="more" style="text-align:center;margin:18px 0;display:none"><button class="btn" onclick="showMore()" id="morebtn"></button></div>
 <div class="empty" id="empty" style="display:none">沒有符合條件的廠商。放寬篩選試試。</div>
 </div>
 <script>
@@ -161,16 +161,28 @@ function tableHTML(list){
  const rows=list.map(v=>{const link=v.final_url||v.url||"";return `<tr><td class="wrap">${esc(v.name)}</td><td>${esc(v.country)}</td><td>${v.role}</td><td>${esc(v.supply_subcats.join("/"))}</td><td>${esc((v.materials||[]).join("/"))}</td><td>${v.pcr?"PCR":""}${v.pcr&&v.certs.length?" ":""}${esc(v.certs.join("/"))}</td><td>${(v.neck_finishes||[]).join(" ")}</td><td>${v.est_year||""}</td><td>${(v.emails||[])[0]?esc(v.emails[0]):""}</td><td>${link?`<a href="${esc(link)}" target="_blank" rel="noopener">官網</a>`:''}</td></tr>`}).join("");
  return `<table class="vt"><thead><tr><th>廠商</th><th>地區</th><th>角色</th><th>用途</th><th>材質</th><th>認證/PCR</th><th>牙數</th><th>成立</th><th>信箱</th><th>官網</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+// 分批顯示：一次只畫 PAGE 筆，避免 1,690 筆全繪造成卡頓
+const PAGE=300;let shown=PAGE;
+function paint(){
+ const list=window._filtered||[];
+ const slice=list.slice(0,shown);
+ const g=document.getElementById("grid");
+ if(state.view==="table"){g.className="tblwrap";g.innerHTML=tableHTML(slice);}
+ else if(state.view==="list"){g.className="listview";g.innerHTML=slice.map(listRow).join("");}
+ else{g.className="grid";g.innerHTML=slice.map(card).join("");}
+ const more=document.getElementById("more");
+ if(shown<list.length){more.style.display="block";
+  document.getElementById("morebtn").textContent=`顯示更多（已顯示 ${shown} / ${list.length} 家）`;}
+ else more.style.display="none";
+ document.getElementById("empty").style.display=list.length?"none":"block";
+}
+function showMore(){shown=Math.min(shown+PAGE,(window._filtered||[]).length);paint();}
 function render(){
  let list=DATA.filter(match);
  if(state.q){const q=state.q;list=list.slice().sort((a,b)=>{const d=nrank(a.name,q)-nrank(b.name,q);return d||a.name.localeCompare(b.name)})}
  document.getElementById("count").textContent=`符合 ${list.length} 家 / 全部 ${DATA.length} 家`;
- const g=document.getElementById("grid");
- if(state.view==="table"){g.className="tblwrap";g.innerHTML=tableHTML(list);}
- else if(state.view==="list"){g.className="listview";g.innerHTML=list.map(listRow).join("");}
- else{g.className="grid";g.innerHTML=list.map(card).join("");}
- document.getElementById("empty").style.display=list.length?"none":"block";
- window._filtered=list;
+ window._filtered=list;shown=Math.min(PAGE,list.length);
+ paint();
 }
 function bindChips(){
  document.querySelectorAll(".chip").forEach(ch=>{
@@ -186,7 +198,7 @@ function bindChips(){
   });
  });
 }
-document.getElementById("q").addEventListener("input",e=>{state.q=e.target.value.toLowerCase().trim();render()});
+let _qt;document.getElementById("q").addEventListener("input",e=>{const v=e.target.value.toLowerCase().trim();clearTimeout(_qt);_qt=setTimeout(()=>{state.q=v;render()},220)});
 document.getElementById("country").addEventListener("change",e=>{state.country=e.target.value;render()});
 document.getElementById("neck").addEventListener("change",e=>{state.neck=e.target.value;render()});
 document.getElementById("estage").addEventListener("change",e=>{state.estage=e.target.value;render()});
@@ -229,17 +241,26 @@ document.querySelectorAll(".vb").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".vb").forEach(x=>x.classList.remove("on"));
  b.classList.add("on");state.view=b.dataset.view;render();
 }));
-// 下拉自動隱藏篩選區（往下捲收起，往上捲或靠頂展開）
-let lastY=0,ticking=false;
+// 下拉自動隱藏篩選區。切換會改變版面高度並反過來觸發 scroll，
+// 故用「50px 遲滯 + 切換後 450ms 冷卻鎖」切斷回授，避免抖動/當掉。
+let lastY=window.scrollY||0,lockUntil=0,ticking=false;
+function onScroll(){
+ const y=window.scrollY||document.documentElement.scrollTop;
+ const now=Date.now();
+ if(now<lockUntil){lastY=y;return;}
+ const c=document.querySelector(".controls");
+ const hidden=c.classList.contains("hidefilters");
+ // 捲到底時不切換：收合會縮短版面、讓捲軸回彈造成來回跳動
+ if(y+window.innerHeight>=document.documentElement.scrollHeight-60){lastY=y;return;}
+ if(y<80){if(hidden){c.classList.remove("hidefilters");lockUntil=now+450;}lastY=y;return;}
+ const dy=y-lastY;
+ if(dy>50&&!hidden){c.classList.add("hidefilters");lockUntil=now+450;lastY=y;return;}
+ if(dy<-50&&hidden){c.classList.remove("hidefilters");lockUntil=now+450;lastY=y;return;}
+ if(Math.abs(dy)>50)lastY=y;
+}
 window.addEventListener("scroll",()=>{
  if(ticking)return;ticking=true;
- requestAnimationFrame(()=>{
-  const y=window.scrollY||document.documentElement.scrollTop;
-  const c=document.querySelector(".controls");
-  if(y>170 && y>lastY+3) c.classList.add("hidefilters");
-  else if(y<lastY-3 || y<110) c.classList.remove("hidefilters");
-  lastY=y;ticking=false;
- });
+ requestAnimationFrame(()=>{onScroll();ticking=false;});
 },{passive:true});
 bindChips();render();
 </script>
