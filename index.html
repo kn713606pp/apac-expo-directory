@@ -71,7 +71,7 @@ table.vt a{color:var(--green2);text-decoration:none;font-weight:600}
 <header>
 <button class="theme" onclick="toggleTheme()">◐ 主題</button>
 <h1>亞太美容展 · 供應商查詢平台</h1>
-<div class="meta">來源：2025 亞太區美容展（Cosmoprof Asia 香港）參展商名錄　·　1690 家（成功爬取官網 1555 家）　·　爬取更新 2026-07-24 15:06<br>分類依據：展會類別 + 進官網擷取正文/認證/信箱/瓶口牙數（供應端分類為程式判定，聯絡前請以官網為準）</div>
+<div class="meta">來源：2025 亞太區美容展（Cosmoprof Asia 香港）參展商名錄　·　1690 家（成功爬取官網 1555 家）　·　爬取更新 2026-07-24 17:41<br>分類依據：展會類別 + 進官網擷取正文/認證/信箱/瓶口牙數（供應端分類為程式判定，聯絡前請以官網為準）</div>
 </header>
 <div class="wrap">
 <div class="controls">
@@ -91,7 +91,7 @@ table.vt a{color:var(--green2);text-decoration:none;font-weight:600}
   <div class="frow"><span class="flabel">其他</span><span class="chip" data-flag="moq">有提 MOQ</span><span class="chip" data-flag="oem">OEM/ODM 代工</span><span class="chip" data-flag="neck">有瓶口牙數</span><span class="chip" data-flag="email">有信箱</span></div>
  </div>
 </div>
-<div class="count"><span id="count"></span><span class="viewbtns"><button class="vb on" data-view="card">▦ 圖片式</button><button class="vb" data-view="list">☰ 條列式</button><button class="vb" data-view="table">▤ 表格式</button></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportOutlook()">⬇ 匯出 Outlook 通訊錄(可匯入)</button><button class="btn" onclick="copyEmails()">⧉ 複製信箱</button><button class="btn" onclick="exportCSV()">⬇ 匯出總表 CSV</button></span></div>
+<div class="count"><span id="count"></span><span class="viewbtns"><button class="vb on" data-view="card">▦ 圖片式</button><button class="vb" data-view="list">☰ 條列式</button><button class="vb" data-view="table">▤ 表格式</button></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportSites()">🔗 匯出官網清單</button><button class="btn" onclick="exportBookmarks()">🔖 匯出瀏覽器書籤</button><button class="btn" onclick="copySites()">⧉ 複製官網網址</button><button class="btn" onclick="exportOutlook()">⬇ Outlook 通訊錄</button><button class="btn" onclick="copyEmails()">⧉ 複製信箱</button><button class="btn" onclick="exportCSV()">⬇ 總表 CSV</button></span></div>
 <div class="grid" id="grid"></div>
 <div id="more" style="text-align:center;margin:18px 0;display:none"><button class="btn" onclick="showMore()" id="morebtn"></button></div>
 <div class="empty" id="empty" style="display:none">沒有符合條件的廠商。放寬篩選試試。</div>
@@ -213,6 +213,33 @@ function copyEmails(){
  const em=filteredEmails();
  if(!em.length){alert("這批沒有可用信箱。");return}
  navigator.clipboard.writeText(em.join("; ")).then(()=>alert(`已複製 ${em.length} 個信箱到剪貼簿（分號分隔），可直接貼到 Outlook 收件人。`),()=>alert("複製失敗，請改用匯出。"));
+}
+// 一鍵匯出「目前查詢結果」的廠商官網
+function sitesOf(){return (window._filtered||[]).filter(v=>v.final_url||v.url)}
+function exportSites(){
+ const list=sitesOf();
+ if(!list.length){alert("這批沒有官網可匯出。");return}
+ const rows=[["廠商","官網","地區","角色","用途","材質","成立年","信箱"]];
+ list.forEach(v=>rows.push([v.name,v.final_url||v.url,v.country,v.role,
+  v.supply_subcats.join("/"),(v.materials||[]).join("/"),v.est_year||"",(v.emails||[]).join("; ")]));
+ dl("供應商官網清單.csv",rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n"));
+ alert(`已匯出 ${list.length} 家官網清單（CSV，可用 Excel 開）。`);
+}
+function exportBookmarks(){
+ const list=sitesOf();
+ if(!list.length){alert("這批沒有官網可匯出。");return}
+ const items=list.map(v=>`        <DT><A HREF="${esc(v.final_url||v.url)}">${esc(v.name)}</A>`).join("\n");
+ const html='<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n    <DT><H3>供應商官網（'+list.length+'家）</H3>\n    <DL><p>\n'+items+'\n    </DL><p>\n</DL><p>';
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([html],{type:"text/html;charset=utf-8"}));
+ a.download="供應商官網書籤.html";a.click();
+ alert(`已匯出 ${list.length} 家書籤檔。\n匯入方式：Chrome/Edge → 書籤管理員 → 匯入書籤 → 選這個檔，會建立一個「供應商官網」資料夾，可逐家點開。`);
+}
+function copySites(){
+ const list=sitesOf();
+ if(!list.length){alert("這批沒有官網可複製。");return}
+ const txt=list.map(v=>(v.final_url||v.url)).join("\n");
+ navigator.clipboard.writeText(txt).then(()=>alert(`已複製 ${list.length} 個官網網址（一行一個）。`),()=>alert("複製失敗，請改用匯出。"));
 }
 // 匯出 Outlook 可直接匯入的通訊錄 CSV（每個信箱一列）
 function exportOutlook(){
